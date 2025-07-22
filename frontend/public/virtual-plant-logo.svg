@@ -1,0 +1,94 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" aria-hidden="true" role="img" class="iconify iconify--logos" width="32" height="32" preserveAspectRatio="xMidYMid meet" viewBox="0 0 256 257">
+  <defs>
+    <!-- Gradient for main leaf -->
+    <linearGradient id="leafGradient1" x1="0%" x2="100%" y1="0%" y2="100%">
+      <stop offset="0%" stop-color="#2ECC71"></stop>
+      <stop offset="50%" stop-color="#27AE60"></stop>
+      <stop offset="100%" stop-color="#1E8449"></stop>
+    </linearGradient>
+    
+    <!-- Gradient for secondary leaf -->
+    <linearGradient id="leafGradient2" x1="0%" x2="100%" y1="20%" y2="80%">
+      <stop offset="0%" stop-color="#58D68D"></stop>
+      <stop offset="50%" stop-color="#2ECC71"></stop>
+      <stop offset="100%" stop-color="#239B56"></stop>
+    </linearGradient>
+    
+    <!-- Gradient for stem/pot -->
+    <linearGradient id="stemGradient" x1="0%" x2="100%" y1="0%" y2="100%">
+      <stop offset="0%" stop-color="#8B4513"></stop>
+      <stop offset="50%" stop-color="#A0522D"></stop>
+      <stop offset="100%" stop-color="#654321"></stop>
+    </linearGradient>
+    
+    <!-- Gradient for pot -->
+    <linearGradient id="potGradient" x1="0%" x2="100%" y1="0%" y2="100%">
+      <stop offset="0%" stop-color="#E67E22"></stop>
+      <stop offset="50%" stop-color="#D35400"></stop>
+      <stop offset="100%" stop-color="#A04000"></stop>
+    </linearGradient>
+    
+    <!-- Glow effect -->
+    <filter id="glow">
+      <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
+      <feMerge> 
+        <feMergeNode in="coloredBlur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+  
+  <!-- Main large leaf -->
+  <path fill="url(#leafGradient1)" filter="url(#glow)" 
+        d="M128 20 
+           C180 25, 220 60, 235 110
+           C240 130, 235 150, 220 165
+           C200 185, 170 195, 140 190
+           C120 187, 105 175, 95 155
+           C85 130, 90 100, 105 75
+           C115 50, 125 35, 128 20 Z">
+  </path>
+  
+  <!-- Secondary leaf -->
+  <path fill="url(#leafGradient2)" filter="url(#glow)"
+        d="M100 50
+           C80 55, 60 75, 50 100
+           C45 115, 50 130, 65 140
+           C80 150, 100 145, 115 135
+           C125 125, 130 110, 125 95
+           C120 80, 110 65, 100 50 Z">
+  </path>
+  
+  <!-- Stem -->
+  <path fill="url(#stemGradient)" 
+        d="M125 180
+           C127 185, 129 190, 131 195
+           L135 220
+           C136 225, 135 230, 133 235
+           L125 240
+           C123 235, 122 230, 123 225
+           L127 200
+           C125 195, 123 185, 125 180 Z">
+  </path>
+  
+  <!-- Pot -->
+  <ellipse cx="128" cy="245" rx="25" ry="8" fill="url(#potGradient)" filter="url(#glow)"/>
+  
+  <!-- Leaf veins -->
+  <path stroke="#1E8449" stroke-width="1.5" fill="none" opacity="0.6"
+        d="M128 25 L150 80 M128 35 L170 90 M128 45 L185 105 M128 55 L195 125">
+  </path>
+  
+  <path stroke="#239B56" stroke-width="1" fill="none" opacity="0.5"
+        d="M100 55 L85 90 M105 65 L75 95 M110 75 L70 105">
+  </path>
+  
+  <!-- Digital circuit pattern overlay for "virtual" effect -->
+  <g opacity="0.3">
+    <circle cx="140" cy="70" r="2" fill="#41D1FF"/>
+    <circle cx="160" cy="95" r="1.5" fill="#BD34FE"/>
+    <circle cx="180" cy="120" r="1" fill="#41D1FF"/>
+    <line x1="140" y1="70" x2="160" y2="95" stroke="#41D1FF" stroke-width="0.5"/>
+    <line x1="160" y1="95" x2="180" y2="120" stroke="#BD34FE" stroke-width="0.5"/>
+  </g>
+</svg>
