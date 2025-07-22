@@ -32,16 +32,36 @@ const LoginPage = () => {
   const handleLoginSubmit = async (e) => {
     e.preventDefault();
     
+    // Check for empty fields
+    if (!loginData.email || !loginData.password) {
+      alert('Please fill in all fields.');
+      return;
+    }
+
     try {
       // Simulate login for testing - replace with actual API call
       if (loginData.email === 'admin@admin.com') {
-        const adminData = { email: loginData.email, role: 'admin', username: 'Admin' };
-        localStorage.setItem('user', JSON.stringify(adminData));
-        navigate('/admin');
+        if (loginData.password === 'admin') {
+          const adminData = { email: loginData.email, role: 'admin', username: 'Admin' };
+          localStorage.setItem('user', JSON.stringify(adminData));
+          alert('Login successful! Welcome Admin.');
+          navigate('/admin');
+        } else {
+          alert('Invalid credentials. Please check your email and password.');
+        }
       } else {
-        const userData = { email: loginData.email, role: 'user', username: 'User' };
-        localStorage.setItem('user', JSON.stringify(userData));
-        navigate('/plant-select');
+        // Check if user exists in registered users
+        const existingUsers = JSON.parse(localStorage.getItem('registeredUsers') || '[]');
+        const user = existingUsers.find(u => u.email === loginData.email);
+        
+        if (user && user.password === loginData.password) {
+          const userData = { email: user.email, role: 'user', username: user.username };
+          localStorage.setItem('user', JSON.stringify(userData));
+          alert(`Login successful! Welcome ${user.username}.`);
+          navigate('/plant-select');
+        } else {
+          alert('Invalid credentials. Please check your email and password.');
+        }
       }
     } catch (error) {
       console.error('Login error:', error);
@@ -49,23 +69,65 @@ const LoginPage = () => {
     }
   };
 
+  const checkEmailExists = (email) => {
+    // Get existing users from localStorage
+    const existingUsers = JSON.parse(localStorage.getItem('registeredUsers') || '[]');
+    return existingUsers.some(user => user.email === email);
+  };
+
   const handleRegisterSubmit = async (e) => {
     e.preventDefault();
     
+    // Check for empty fields
+    if (!registerData.username || !registerData.email || !registerData.password || !registerData.confirmPassword) {
+      alert('Please fill in all fields.');
+      return;
+    }
+
+    // Check password length
+    if (registerData.password.length < 6) {
+      alert('Password must be at least 6 characters long.');
+      return;
+    }
+
     if (registerData.password !== registerData.confirmPassword) {
       alert('Passwords do not match!');
       return;
     }
 
+    // Check if email already exists
+    if (checkEmailExists(registerData.email)) {
+      alert('User already exists with this email. Please use a different email or try signing in.');
+      return;
+    }
+
     try {
-      // Simulate registration for testing - replace with actual API call
-      const userData = { 
-        email: registerData.email, 
-        role: 'user', 
-        username: registerData.username 
+      // Get existing users and add new user
+      const existingUsers = JSON.parse(localStorage.getItem('registeredUsers') || '[]');
+      const newUser = {
+        email: registerData.email,
+        username: registerData.username,
+        password: registerData.password, // In real app, this should be hashed
+        role: 'user'
       };
-      localStorage.setItem('user', JSON.stringify(userData));
-      navigate('/plant-select');
+      
+      existingUsers.push(newUser);
+      localStorage.setItem('registeredUsers', JSON.stringify(existingUsers));
+      
+      // Show success message and switch to login tab
+      alert('Registration successful! Please sign in with your new account.');
+      
+      // Clear registration form
+      setRegisterData({
+        username: '',
+        email: '',
+        password: '',
+        confirmPassword: ''
+      });
+      
+      // Switch to login tab
+      setActiveTab('login');
+      
     } catch (error) {
       console.error('Registration error:', error);
       alert('Registration failed. Please try again.');
@@ -110,7 +172,7 @@ const LoginPage = () => {
                 Sign in to your account
               </p>
               <p className="mt-2 text-center text-xs text-gray-500">
-                Demo: Use admin@admin.com for admin access, any other email for user access
+                Demo: Use admin@admin.com / admin for admin access
               </p>
             </div>
             <form className="mt-8 space-y-6" onSubmit={handleLoginSubmit}>
@@ -214,7 +276,7 @@ const LoginPage = () => {
                     value={registerData.password}
                     onChange={handleRegisterChange}
                     className="mt-1 appearance-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-green-500 focus:border-green-500"
-                    placeholder="Create a password"
+                    placeholder="Create a password (min 6 characters)"
                   />
                 </div>
                 <div>
