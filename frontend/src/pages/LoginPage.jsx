@@ -1,76 +1,93 @@
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState } from "react";
+import { useNavigate } from "react-router-dom";
 
 const LoginPage = () => {
-  const [activeTab, setActiveTab] = useState('login');
+  const [activeTab, setActiveTab] = useState("login");
   const [loginData, setLoginData] = useState({
-    email: '',
-    password: ''
+    email: "",
+    password: "",
   });
   const [registerData, setRegisterData] = useState({
-    username: '',
-    email: '',
-    password: '',
-    confirmPassword: ''
+    username: "",
+    email: "",
+    password: "",
+    confirmPassword: "",
   });
   const navigate = useNavigate();
 
   const handleLoginChange = (e) => {
     setLoginData({
       ...loginData,
-      [e.target.name]: e.target.value
+      [e.target.name]: e.target.value,
     });
   };
 
   const handleRegisterChange = (e) => {
     setRegisterData({
       ...registerData,
-      [e.target.name]: e.target.value
+      [e.target.name]: e.target.value,
     });
   };
 
   const handleLoginSubmit = async (e) => {
-    e.preventDefault();
-    
-    try {
-      // Simulate login for testing - replace with actual API call
-      if (loginData.email === 'admin@admin.com') {
-        const adminData = { email: loginData.email, role: 'admin', username: 'Admin' };
-        localStorage.setItem('user', JSON.stringify(adminData));
-        navigate('/admin');
-      } else {
-        const userData = { email: loginData.email, role: 'user', username: 'User' };
-        localStorage.setItem('user', JSON.stringify(userData));
-        navigate('/plant-select');
-      }
-    } catch (error) {
-      console.error('Login error:', error);
-      alert('Login failed. Please try again.');
+  e.preventDefault();
+  try {
+    const res = await fetch("http://localhost:5000/api/login", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify(loginData)
+    });
+
+    const data = await res.json();
+    if (res.ok) {
+      localStorage.setItem("user", JSON.stringify(data.user));
+      navigate("/plant-select");
+    } else {
+      alert(data.message || "Login failed");
     }
-  };
+  } catch (error) {
+    console.error("Login error:", error);
+    alert("Login failed. Please try again.");
+  }
+};
+
 
   const handleRegisterSubmit = async (e) => {
-    e.preventDefault();
-    
-    if (registerData.password !== registerData.confirmPassword) {
-      alert('Passwords do not match!');
-      return;
-    }
+  e.preventDefault();
 
-    try {
-      // Simulate registration for testing - replace with actual API call
-      const userData = { 
-        email: registerData.email, 
-        role: 'user', 
-        username: registerData.username 
-      };
-      localStorage.setItem('user', JSON.stringify(userData));
-      navigate('/plant-select');
-    } catch (error) {
-      console.error('Registration error:', error);
-      alert('Registration failed. Please try again.');
+  if (registerData.password !== registerData.confirmPassword) {
+    alert("Passwords do not match!");
+    return;
+  }
+
+  try {
+    const res = await fetch("http://localhost:5000/api/register", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        username: registerData.username,
+        email: registerData.email,
+        password: registerData.password
+      })
+    });
+
+    const data = await res.json();
+    if (res.ok) {
+      localStorage.setItem("user", JSON.stringify(data.user));
+      navigate("/plant-select");
+    } else {
+      alert(data.message || "Registration failed");
     }
-  };
+  } catch (error) {
+    console.error("Registration error:", error);
+    alert("Registration failed. Please try again.");
+  }
+};
+
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-green-50">
@@ -78,21 +95,21 @@ const LoginPage = () => {
         {/* Tab Navigation */}
         <div className="flex border-b border-gray-200">
           <button
-            onClick={() => setActiveTab('login')}
+            onClick={() => setActiveTab("login")}
             className={`flex-1 py-2 px-4 text-center font-medium text-sm ${
-              activeTab === 'login'
-                ? 'text-green-600 border-b-2 border-green-600'
-                : 'text-gray-500 hover:text-gray-700'
+              activeTab === "login"
+                ? "text-green-600 border-b-2 border-green-600"
+                : "text-gray-500 hover:text-gray-700"
             }`}
           >
             Sign In
           </button>
           <button
-            onClick={() => setActiveTab('register')}
+            onClick={() => setActiveTab("register")}
             className={`flex-1 py-2 px-4 text-center font-medium text-sm ${
-              activeTab === 'register'
-                ? 'text-green-600 border-b-2 border-green-600'
-                : 'text-gray-500 hover:text-gray-700'
+              activeTab === "register"
+                ? "text-green-600 border-b-2 border-green-600"
+                : "text-gray-500 hover:text-gray-700"
             }`}
           >
             Register
@@ -100,7 +117,7 @@ const LoginPage = () => {
         </div>
 
         {/* Login Form */}
-        {activeTab === 'login' && (
+        {activeTab === "login" && (
           <>
             <div>
               <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
@@ -110,13 +127,16 @@ const LoginPage = () => {
                 Sign in to your account
               </p>
               <p className="mt-2 text-center text-xs text-gray-500">
-                Demo: Use admin@admin.com for admin access, any other email for user access
+                Demo: Use any email to log in
               </p>
             </div>
             <form className="mt-8 space-y-6" onSubmit={handleLoginSubmit}>
               <div className="space-y-4">
                 <div>
-                  <label htmlFor="login-email" className="block text-sm font-medium text-gray-700">
+                  <label
+                    htmlFor="login-email"
+                    className="block text-sm font-medium text-gray-700"
+                  >
                     Email
                   </label>
                   <input
@@ -131,7 +151,10 @@ const LoginPage = () => {
                   />
                 </div>
                 <div>
-                  <label htmlFor="login-password" className="block text-sm font-medium text-gray-700">
+                  <label
+                    htmlFor="login-password"
+                    className="block text-sm font-medium text-gray-700"
+                  >
                     Password
                   </label>
                   <input
@@ -160,7 +183,7 @@ const LoginPage = () => {
         )}
 
         {/* Register Form */}
-        {activeTab === 'register' && (
+        {activeTab === "register" && (
           <>
             <div>
               <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
@@ -173,7 +196,10 @@ const LoginPage = () => {
             <form className="mt-8 space-y-6" onSubmit={handleRegisterSubmit}>
               <div className="space-y-4">
                 <div>
-                  <label htmlFor="register-username" className="block text-sm font-medium text-gray-700">
+                  <label
+                    htmlFor="register-username"
+                    className="block text-sm font-medium text-gray-700"
+                  >
                     Username
                   </label>
                   <input
@@ -188,7 +214,10 @@ const LoginPage = () => {
                   />
                 </div>
                 <div>
-                  <label htmlFor="register-email" className="block text-sm font-medium text-gray-700">
+                  <label
+                    htmlFor="register-email"
+                    className="block text-sm font-medium text-gray-700"
+                  >
                     Email
                   </label>
                   <input
@@ -203,7 +232,10 @@ const LoginPage = () => {
                   />
                 </div>
                 <div>
-                  <label htmlFor="register-password" className="block text-sm font-medium text-gray-700">
+                  <label
+                    htmlFor="register-password"
+                    className="block text-sm font-medium text-gray-700"
+                  >
                     Password
                   </label>
                   <input
@@ -218,7 +250,10 @@ const LoginPage = () => {
                   />
                 </div>
                 <div>
-                  <label htmlFor="register-confirm-password" className="block text-sm font-medium text-gray-700">
+                  <label
+                    htmlFor="register-confirm-password"
+                    className="block text-sm font-medium text-gray-700"
+                  >
                     Confirm Password
                   </label>
                   <input
