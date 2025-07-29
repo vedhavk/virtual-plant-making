@@ -1,6 +1,6 @@
 import React from 'react'
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
-import RegisterPage from './pages/RegisterPage.jsx';
+// import RegisterPage from './pages/RegisterPage.jsx';
 import LoginPage from './pages/LoginPage.jsx';
 import PlantSelectPage from './pages/PlantSelectPage.jsx';
 import AdminDashboard from './pages/AdminDashboard.jsx';
