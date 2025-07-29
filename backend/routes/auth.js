@@ -3,8 +3,6 @@ const User = require("../models/user"); // Adjust the path as necessary
 const router = express.Router();
 require("dotenv").config();
 
-
-
 // Register route
 router.post("/register", async (req, res) => {
   try {
@@ -111,8 +109,7 @@ Preferences: sunlight ${preferences.sunlight || "any"}, humidity ${
       {
         method: "POST",
         headers: {
-          Authorization:
-            `Bearer ${process.env.REACT_APP_OPENAI_API_KEY}`,
+          Authorization: `Bearer ${process.env.OPENAI_API_KEY}`, // Remove REACT_APP_
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
@@ -205,8 +202,7 @@ Find information about the plant "${searchQuery}" and return ONLY a JSON object 
       {
         method: "POST",
         headers: {
-          Authorization:
-            `Bearer ${process.env.REACT_APP_OPENAI_API_KEY}`,
+          Authorization: `Bearer ${process.env.OPENAI_API_KEY}`, // Remove REACT_APP_
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
