@@ -1,9 +1,10 @@
-import React from 'react'
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import React from "react";
+import { BrowserRouter, Routes, Route } from "react-router-dom";
 // import RegisterPage from './pages/RegisterPage.jsx';
-import LoginPage from './pages/LoginPage.jsx';
-import PlantSelectPage from './pages/PlantSelectPage.jsx';
-import AdminDashboard from './pages/AdminDashboard.jsx';
+import LoginPage from "./pages/LoginPage.jsx";
+import PlantSelectPage from "./pages/PlantSelectPage.jsx";
+import AdminDashboard from "./pages/AdminDashboard.jsx";
+import PlantDetails from "./pages/plantdetails.jsx"; // Fixed import name
 
 const App = () => {
   return (
@@ -14,9 +15,11 @@ const App = () => {
         <Route path="/login" element={<LoginPage />} />
         <Route path="/plant-select" element={<PlantSelectPage />} />
         <Route path="/admin" element={<AdminDashboard />} />
+        <Route path="/plant-details" element={<PlantDetails />} />{" "}
+        {/* Fixed component usage */}
       </Routes>
     </BrowserRouter>
   );
-}
+};
 
-export default App
+export default App;

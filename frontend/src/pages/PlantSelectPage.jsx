@@ -13,14 +13,114 @@ const PlantSelectPage = () => {
   const [searching, setSearching] = useState(false);
   const [searchResults, setSearchResults] = useState([]);
 
+  // Track plant progress data
+  const [plantProgressData, setPlantProgressData] = useState({});
+
   useEffect(() => {
     const userData = localStorage.getItem("user");
     if (userData) {
       setUser(JSON.parse(userData));
+      // Load all plant progress data
+      loadAllPlantProgress();
     } else {
       navigate("/login");
     }
   }, [navigate]);
+
+  // Load progress data for all plants
+  const loadAllPlantProgress = () => {
+    const progressData = {};
+    const allPlants = [...plants]; // Include AI and search results when available
+
+    allPlants.forEach((plant) => {
+      const savedData = localStorage.getItem(`plant_${plant.id}_progress`);
+      if (savedData) {
+        try {
+          progressData[plant.id] = JSON.parse(savedData);
+        } catch (error) {
+          console.error(`Error loading progress for plant ${plant.id}:`, error);
+        }
+      }
+    });
+
+    setPlantProgressData(progressData);
+  };
+
+  // Get plant status info
+  const getPlantStatus = (plantId) => {
+    const progress = plantProgressData[plantId];
+    if (!progress) {
+      return {
+        status: "New Plant",
+        health: 0,
+        age: 0,
+        stage: "seedling",
+        dailyCareComplete: false,
+        careStreak: 0,
+        statusColor: "text-gray-600",
+        bgColor: "bg-gray-100",
+        emoji: "🌱",
+      };
+    }
+
+    const health = progress.health?.health || 0;
+    const age = progress.age || 0;
+    const stage = progress.stage || "seedling";
+    const dailyCare = progress.dailyCare || {};
+    const careComplete =
+      dailyCare.todayCareGiven &&
+      Object.values(dailyCare.todayCareGiven).every(Boolean);
+
+    // Determine status based on health and care
+    let status, statusColor, bgColor, emoji;
+
+    if (health === 0) {
+      status = "New Plant";
+      statusColor = "text-gray-600";
+      bgColor = "bg-gray-100";
+      emoji = "🌱";
+    } else if (health < 20) {
+      status = "Critical";
+      statusColor = "text-red-600";
+      bgColor = "bg-red-100";
+      emoji = "💀";
+    } else if (health < 40) {
+      status = "Struggling";
+      statusColor = "text-orange-600";
+      bgColor = "bg-orange-100";
+      emoji = "😰";
+    } else if (health < 60) {
+      status = "Growing";
+      statusColor = "text-yellow-600";
+      bgColor = "bg-yellow-100";
+      emoji = "🌿";
+    } else if (health < 80) {
+      status = "Healthy";
+      statusColor = "text-green-600";
+      bgColor = "bg-green-100";
+      emoji = "🪴";
+    } else {
+      status = "Thriving";
+      statusColor = "text-green-700";
+      bgColor = "bg-green-100";
+      emoji = "🌺";
+    }
+
+    return {
+      status,
+      health,
+      age,
+      stage,
+      dailyCareComplete: careComplete,
+      careStreak: dailyCare.careStreak || 0,
+      statusColor,
+      bgColor,
+      emoji,
+      lastCared: progress.lastSaved
+        ? new Date(progress.lastSaved).toLocaleDateString()
+        : "Never",
+    };
+  };
 
   const handleLogout = () => {
     localStorage.removeItem("user");
@@ -67,8 +167,22 @@ const PlantSelectPage = () => {
   ];
 
   const handleSelectPlant = (plant) => {
-    alert(`You selected ${plant.name}!`);
+    // Store the selected plant
     localStorage.setItem("selectedPlant", JSON.stringify(plant));
+
+    const plantStatus = getPlantStatus(plant.id);
+
+    // Show different message based on plant status
+    if (plantStatus.health > 0) {
+      alert(
+        `Welcome back to your ${plant.name}! Health: ${plantStatus.health}%, Age: ${plantStatus.age} days`
+      );
+    } else {
+      alert(`You selected ${plant.name}! Starting your plant care journey...`);
+    }
+
+    // Navigate to plant details page
+    navigate("/plant-details");
   };
 
   const fetchAIPlants = async () => {
@@ -96,7 +210,6 @@ const PlantSelectPage = () => {
       const data = await response.json();
 
       if (data.success && data.plants && Array.isArray(data.plants)) {
-        // Ensure each plant has required properties
         const validPlants = data.plants.map((plant, index) => ({
           id: plant.id || Date.now() + index,
           name: plant.name || `AI Plant ${index + 1}`,
@@ -105,6 +218,8 @@ const PlantSelectPage = () => {
         }));
 
         setAiPlants(validPlants);
+        // Reload progress data to include AI plants
+        setTimeout(loadAllPlantProgress, 100);
       } else {
         alert(data.message || "Failed to get AI suggestions");
         setAiPlants([]);
@@ -133,7 +248,6 @@ const PlantSelectPage = () => {
       const data = await response.json();
 
       if (data.success && data.plants && data.plants.length > 0) {
-        // Ensure each plant has required properties
         const results = data.plants.map((plant, index) => ({
           id: plant.id || 300 + index,
           name: plant.name || `Plant ${index + 1}`,
@@ -145,6 +259,8 @@ const PlantSelectPage = () => {
         setSearchResult(
           `Found ${results.length} plants matching "${searchTerm}"`
         );
+        // Reload progress data to include search results
+        setTimeout(loadAllPlantProgress, 100);
       } else {
         setSearchResult(`No plants found for "${searchTerm}". Try again.`);
         setSearchResults([]);
@@ -158,7 +274,156 @@ const PlantSelectPage = () => {
     setSearching(false);
   };
 
+  // Plant card component with progress display
+  const PlantCard = ({ plant, type = "featured" }) => {
+    const plantStatus = getPlantStatus(plant.id);
+    const isExisting = plantStatus.health > 0;
+
+    let borderColor, buttonColor, typeLabel;
+    switch (type) {
+      case "search":
+        borderColor = "border-blue-500";
+        buttonColor = "bg-blue-600 hover:bg-blue-700";
+        typeLabel = {
+          bg: "bg-blue-100",
+          text: "text-blue-800",
+          label: "Search Result",
+        };
+        break;
+      case "ai":
+        borderColor = "border-purple-500";
+        buttonColor = "bg-purple-600 hover:bg-purple-700";
+        typeLabel = {
+          bg: "bg-purple-100",
+          text: "text-purple-800",
+          label: "AI Suggested",
+        };
+        break;
+      default:
+        borderColor = "";
+        buttonColor = "bg-green-600 hover:bg-green-700";
+        typeLabel = null;
+    }
+
+    return (
+      <div
+        className={`bg-white p-6 rounded-lg shadow-md hover:shadow-lg ${
+          borderColor && `border-l-4 ${borderColor}`
+        } transition-all duration-200`}
+      >
+        <div className="flex justify-between items-start mb-3">
+          <h3 className="text-xl font-semibold text-gray-900">{plant.name}</h3>
+          {typeLabel && (
+            <span
+              className={`${typeLabel.bg} ${typeLabel.text} text-xs px-2 py-1 rounded`}
+            >
+              {typeLabel.label}
+            </span>
+          )}
+        </div>
+
+        {/* Plant Status Display */}
+        <div className={`mb-4 p-3 rounded-lg ${plantStatus.bgColor}`}>
+          <div className="flex items-center justify-between mb-2">
+            <span className="flex items-center">
+              <span className="text-lg mr-2">{plantStatus.emoji}</span>
+              <span className={`font-semibold ${plantStatus.statusColor}`}>
+                {plantStatus.status}
+              </span>
+            </span>
+            {isExisting && (
+              <span className="text-sm text-gray-600">
+                Day {plantStatus.age}
+              </span>
+            )}
+          </div>
+
+          {isExisting ? (
+            <div className="space-y-1">
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-600">Health:</span>
+                <span className={`font-semibold ${plantStatus.statusColor}`}>
+                  {plantStatus.health}%
+                </span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-600">Care Streak:</span>
+                <span className="font-semibold text-orange-600">
+                  {plantStatus.careStreak} days
+                </span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-600">Today's Care:</span>
+                <span
+                  className={`font-semibold ${
+                    plantStatus.dailyCareComplete
+                      ? "text-green-600"
+                      : "text-red-600"
+                  }`}
+                >
+                  {plantStatus.dailyCareComplete ? "✅ Complete" : "❌ Pending"}
+                </span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-600">Last Cared:</span>
+                <span className="text-gray-500 text-xs">
+                  {plantStatus.lastCared}
+                </span>
+              </div>
+            </div>
+          ) : (
+            <div>
+              <p className="text-gray-600 text-sm mb-2">{plant.description}</p>
+              <p className="text-xs text-gray-500">
+                <strong>Care:</strong> {plant.care}
+              </p>
+            </div>
+          )}
+        </div>
+
+        {/* Action Button */}
+        <button
+          onClick={() => handleSelectPlant(plant)}
+          className={`w-full text-white py-2 rounded-md transition-colors ${buttonColor} ${
+            isExisting ? "font-semibold" : ""
+          }`}
+        >
+          {isExisting ? `Continue with ${plant.name}` : `Select ${plant.name}`}
+        </button>
+
+        {/* Urgency indicator for critical plants */}
+        {plantStatus.health > 0 && plantStatus.health < 30 && (
+          <div className="mt-2 p-2 bg-red-50 border border-red-200 rounded-md">
+            <p className="text-red-700 text-xs font-semibold text-center animate-pulse">
+              🚨 Your plant needs immediate attention!
+            </p>
+          </div>
+        )}
+
+        {/* Daily care reminder */}
+        {plantStatus.health > 0 && !plantStatus.dailyCareComplete && (
+          <div className="mt-2 p-2 bg-orange-50 border border-orange-200 rounded-md">
+            <p className="text-orange-700 text-xs text-center">
+              ⏰ Don't forget today's care routine!
+            </p>
+          </div>
+        )}
+      </div>
+    );
+  };
+
   if (!user) return <div>Loading...</div>;
+
+  // Get plants that need urgent care
+  const criticalPlants = plants.filter((plant) => {
+    const status = getPlantStatus(plant.id);
+    return status.health > 0 && status.health < 30;
+  });
+
+  const plantsNeedingCare = plants.filter((plant) => {
+    const status = getPlantStatus(plant.id);
+    return status.health > 0 && !status.dailyCareComplete;
+  });
 
   return (
     <div className="min-h-screen bg-green-50 p-8">
@@ -170,7 +435,7 @@ const PlantSelectPage = () => {
               Welcome, {user.username || user.email}!
             </h1>
             <p className="text-gray-600 mt-2">
-              Select your virtual plant to start your journey
+              Select your virtual plant to start or continue your journey
             </p>
           </div>
           <button
@@ -180,6 +445,48 @@ const PlantSelectPage = () => {
             Logout
           </button>
         </div>
+
+        {/* Urgent Care Alerts */}
+        {criticalPlants.length > 0 && (
+          <div className="mb-6 bg-red-100 border border-red-300 rounded-lg p-4">
+            <h3 className="text-red-800 font-bold mb-2 flex items-center">
+              <span className="mr-2">🚨</span>
+              Plants Need Urgent Care!
+            </h3>
+            <div className="flex flex-wrap gap-2">
+              {criticalPlants.map((plant) => (
+                <button
+                  key={plant.id}
+                  onClick={() => handleSelectPlant(plant)}
+                  className="bg-red-600 text-white px-3 py-1 rounded-md text-sm hover:bg-red-700 animate-pulse"
+                >
+                  {plant.name} ({getPlantStatus(plant.id).health}% health)
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Daily Care Reminders */}
+        {plantsNeedingCare.length > 0 && (
+          <div className="mb-6 bg-orange-100 border border-orange-300 rounded-lg p-4">
+            <h3 className="text-orange-800 font-bold mb-2 flex items-center">
+              <span className="mr-2">⏰</span>
+              Plants Need Today's Care
+            </h3>
+            <div className="flex flex-wrap gap-2">
+              {plantsNeedingCare.map((plant) => (
+                <button
+                  key={plant.id}
+                  onClick={() => handleSelectPlant(plant)}
+                  className="bg-orange-600 text-white px-3 py-1 rounded-md text-sm hover:bg-orange-700"
+                >
+                  {plant.name}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Search Section */}
         <div className="mb-8">
@@ -214,25 +521,7 @@ const PlantSelectPage = () => {
               </h2>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {searchResults.map((plant) => (
-                  <div
-                    key={plant.id}
-                    className="bg-white p-6 rounded-lg shadow-md hover:shadow-lg border-l-4 border-blue-500"
-                  >
-                    <div className="flex justify-between items-start mb-3">
-                      <h3 className="text-xl font-semibold text-gray-900">
-                        {plant.name}
-                      </h3>
-                      <span className="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded">
-                        Search Result
-                      </span>
-                    </div>
-                    <button
-                      onClick={() => handleSelectPlant(plant)}
-                      className="w-full bg-blue-600 text-white py-2 rounded-md hover:bg-blue-700"
-                    >
-                      Select {plant.name}
-                    </button>
-                  </div>
+                  <PlantCard key={plant.id} plant={plant} type="search" />
                 ))}
               </div>
             </div>
@@ -246,24 +535,7 @@ const PlantSelectPage = () => {
           </h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {plants.map((plant) => (
-              <div
-                key={plant.id}
-                className="bg-white p-6 rounded-lg shadow-md hover:shadow-lg"
-              >
-                <h3 className="text-xl font-semibold mb-3 text-gray-900">
-                  {plant.name}
-                </h3>
-                <p className="text-gray-600 mb-3">{plant.description}</p>
-                <p className="text-sm text-gray-500 mb-4">
-                  <strong>Care:</strong> {plant.care}
-                </p>
-                <button
-                  onClick={() => handleSelectPlant(plant)}
-                  className="w-full bg-green-600 text-white py-2 rounded-md hover:bg-green-700"
-                >
-                  Select {plant.name}
-                </button>
-              </div>
+              <PlantCard key={plant.id} plant={plant} type="featured" />
             ))}
           </div>
         </div>
@@ -276,25 +548,7 @@ const PlantSelectPage = () => {
             </h2>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {aiPlants.map((plant) => (
-                <div
-                  key={plant.id}
-                  className="bg-white p-6 rounded-lg shadow-md hover:shadow-lg border-l-4 border-purple-500"
-                >
-                  <div className="flex justify-between items-start mb-3">
-                    <h3 className="text-xl font-semibold text-gray-900">
-                      {plant.name}
-                    </h3>
-                    <span className="bg-purple-100 text-purple-800 text-xs px-2 py-1 rounded">
-                      AI Suggested
-                    </span>
-                  </div>
-                  <button
-                    onClick={() => handleSelectPlant(plant)}
-                    className="w-full bg-purple-600 text-white py-2 rounded-md hover:bg-purple-700"
-                  >
-                    Select {plant.name}
-                  </button>
-                </div>
+                <PlantCard key={plant.id} plant={plant} type="ai" />
               ))}
             </div>
           </div>
