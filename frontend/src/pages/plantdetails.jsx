@@ -30,6 +30,11 @@ const PlantDetails = () => {
     dailyReminder: true,
   });
 
+  // Get today's date in YYYY-MM-DD format for consistent comparison
+  const getTodayString = () => {
+    return new Date().toISOString().split("T")[0];
+  };
+
   // Get selected plant from localStorage
   useEffect(() => {
     const selectedPlant = localStorage.getItem("selectedPlant");
@@ -93,45 +98,67 @@ const PlantDetails = () => {
 
   // Check if it's a new day and apply daily effects
   useEffect(() => {
-    const today = new Date().toDateString();
+    if (!plant) return; // Don't run if plant isn't loaded yet
+
+    const today = getTodayString();
     const lastCareDate = dailyCare.lastCareDate;
 
-    if (lastCareDate !== today) {
-      // It's a new day
-      const yesterday = new Date();
-      yesterday.setDate(yesterday.getDate() - 1);
-      const yesterdayString = yesterday.toDateString();
+    console.log("Today:", today, "Last Care Date:", lastCareDate); // Debug log
 
-      // Check if player missed yesterday's care
-      if (lastCareDate !== yesterdayString && lastCareDate !== null) {
-        // Player missed one or more days
-        const daysMissed = Math.floor(
-          (new Date() - new Date(lastCareDate)) / (1000 * 60 * 60 * 24)
+    if (lastCareDate !== today) {
+      // It's a new day - check if we need to apply penalties
+      if (lastCareDate !== null) {
+        // Calculate days missed
+        const lastDate = new Date(lastCareDate);
+        const todayDate = new Date(today);
+        const daysDifference = Math.floor(
+          (todayDate - lastDate) / (1000 * 60 * 60 * 24)
         );
 
-        // Apply penalties for missed days
-        setPlantHealth((prev) => ({
-          health: Math.max(0, prev.health - daysMissed * 15),
-          water: Math.max(0, prev.water - daysMissed * 20),
-          sunlight: Math.max(0, prev.sunlight - daysMissed * 15),
-          nutrients: Math.max(0, prev.nutrients - daysMissed * 10),
-          happiness: Math.max(0, prev.happiness - daysMissed * 25),
-        }));
+        console.log("Days difference:", daysDifference); // Debug log
 
-        setDailyCare((prev) => ({
-          ...prev,
-          missedDays: prev.missedDays + daysMissed,
-          careStreak: 0, // Reset streak
-          todayCareGiven: {
-            water: false,
-            sunlight: false,
-            nutrients: false,
-            happiness: false,
-          },
-          dailyReminder: true,
-        }));
+        if (daysDifference > 1) {
+          // Player missed one or more days (more than 1 day gap)
+          const daysMissed = daysDifference - 1;
+
+          console.log("Days missed:", daysMissed); // Debug log
+
+          // Apply penalties for missed days
+          setPlantHealth((prev) => ({
+            health: Math.max(0, prev.health - daysMissed * 15),
+            water: Math.max(0, prev.water - daysMissed * 20),
+            sunlight: Math.max(0, prev.sunlight - daysMissed * 15),
+            nutrients: Math.max(0, prev.nutrients - daysMissed * 10),
+            happiness: Math.max(0, prev.happiness - daysMissed * 25),
+          }));
+
+          setDailyCare((prev) => ({
+            ...prev,
+            missedDays: prev.missedDays + daysMissed,
+            careStreak: 0, // Reset streak
+            todayCareGiven: {
+              water: false,
+              sunlight: false,
+              nutrients: false,
+              happiness: false,
+            },
+            dailyReminder: true,
+          }));
+        } else {
+          // Just a normal new day - reset daily care tasks
+          setDailyCare((prev) => ({
+            ...prev,
+            todayCareGiven: {
+              water: false,
+              sunlight: false,
+              nutrients: false,
+              happiness: false,
+            },
+            dailyReminder: true,
+          }));
+        }
       } else {
-        // Reset daily care for new day
+        // First time caring for this plant
         setDailyCare((prev) => ({
           ...prev,
           todayCareGiven: {
@@ -144,7 +171,43 @@ const PlantDetails = () => {
         }));
       }
     }
-  }, [dailyCare.lastCareDate]);
+  }, [plant, dailyCare.lastCareDate]);
+
+  // Auto-decay system - plant health decreases over time if not cared for recently
+  useEffect(() => {
+    if (!plant) return;
+
+    const decayTimer = setInterval(() => {
+      const today = getTodayString();
+      const lastCareDate = dailyCare.lastCareDate;
+
+      // Only decay if player hasn't completed today's care
+      if (!isDailyCareComplete() || lastCareDate !== today) {
+        setPlantHealth((prev) => {
+          const newHealth = {
+            health: Math.max(0, prev.health - 1), // Slower decay
+            water: Math.max(0, prev.water - 2),
+            sunlight: Math.max(0, prev.sunlight - 1),
+            nutrients: Math.max(0, prev.nutrients - 0.5),
+            happiness: Math.max(0, prev.happiness - 1.5),
+          };
+
+          // Update overall health based on other stats
+          const avgStats =
+            (newHealth.water +
+              newHealth.sunlight +
+              newHealth.nutrients +
+              newHealth.happiness) /
+            4;
+          newHealth.health = Math.round(avgStats);
+
+          return newHealth;
+        });
+      }
+    }, 10000); // Decay every 10 seconds
+
+    return () => clearInterval(decayTimer);
+  }, [plant, dailyCare.lastCareDate, dailyCare.todayCareGiven]);
 
   // Check daily care completion
   const isDailyCareComplete = () => {
@@ -185,7 +248,7 @@ const PlantDetails = () => {
 
   // Enhanced action handlers with daily tracking
   const waterPlant = () => {
-    const today = new Date().toDateString();
+    const today = getTodayString();
 
     setPlantHealth((prev) => {
       const newWater = Math.min(100, prev.water + 25);
@@ -229,7 +292,7 @@ const PlantDetails = () => {
   };
 
   const giveSunlight = () => {
-    const today = new Date().toDateString();
+    const today = getTodayString();
 
     setPlantHealth((prev) => {
       const newSunlight = Math.min(100, prev.sunlight + 20);
@@ -271,7 +334,7 @@ const PlantDetails = () => {
   };
 
   const addNutrients = () => {
-    const today = new Date().toDateString();
+    const today = getTodayString();
 
     setPlantHealth((prev) => {
       const newNutrients = Math.min(100, prev.nutrients + 30);
@@ -313,7 +376,7 @@ const PlantDetails = () => {
   };
 
   const playWithPlant = () => {
-    const today = new Date().toDateString();
+    const today = getTodayString();
 
     setPlantHealth((prev) => {
       const newHappiness = Math.min(100, prev.happiness + 15);
@@ -423,9 +486,12 @@ const PlantDetails = () => {
     }
   };
 
-  // Render plant SVG based on stage and health
+  // Render plant SVG based on stage and health - ENHANCED to show neglect
   const renderPlantSVG = () => {
     const healthPercent = plantHealth.health;
+    const waterLevel = plantHealth.water;
+    const isNeglected =
+      !isDailyCareComplete() && dailyCare.lastCareDate !== getTodayString();
 
     return (
       <svg
@@ -442,31 +508,38 @@ const PlantDetails = () => {
           strokeWidth="2"
         />
 
-        {/* Soil - color changes based on health */}
+        {/* Soil - color changes based on health and water */}
         <ellipse
           cx="150"
           cy="320"
           rx="70"
           ry="10"
-          fill={healthPercent > 50 ? "#4A4A4A" : "#8B4513"}
+          fill={
+            waterLevel > 50
+              ? "#4A4A4A"
+              : waterLevel > 20
+              ? "#8B7355"
+              : "#D2B48C" // Dry, cracked soil
+          }
         />
 
         {/* Render based on stage and health */}
         {(plantStage === "dying" || healthPercent < 20) && (
           <g>
+            {/* Wilted/dying plant */}
             <line
               x1="150"
               y1="320"
-              x2="140"
-              y2="300"
+              x2={isNeglected ? "135" : "140"}
+              y2={isNeglected ? "290" : "300"}
               stroke="#8B4513"
               strokeWidth="2"
               strokeLinecap="round"
               opacity="0.7"
             />
             <ellipse
-              cx="138"
-              cy="295"
+              cx={isNeglected ? "133" : "138"}
+              cy={isNeglected ? "285" : "295"}
               rx="5"
               ry="3"
               fill="#A0522D"
@@ -475,32 +548,57 @@ const PlantDetails = () => {
             <text x="120" y="250" fontSize="20" fill="#8B4513">
               ☠️
             </text>
+            {/* Dry leaves on ground if very neglected */}
+            {isNeglected && (
+              <>
+                <ellipse
+                  cx="100"
+                  cy="330"
+                  rx="8"
+                  ry="4"
+                  fill="#8B4513"
+                  opacity="0.6"
+                />
+                <ellipse
+                  cx="180"
+                  cy="335"
+                  rx="6"
+                  ry="3"
+                  fill="#A0522D"
+                  opacity="0.6"
+                />
+              </>
+            )}
           </g>
         )}
 
         {plantStage === "seedling" && healthPercent >= 20 && (
           <g>
+            {/* Small sprout - droops if not watered */}
             <line
               x1="150"
               y1="320"
               x2="150"
-              y2={320 - healthPercent * 0.5}
-              stroke="#90EE90"
+              y2={320 - healthPercent * 0.5 * (waterLevel > 30 ? 1 : 0.7)}
+              stroke={waterLevel > 30 ? "#90EE90" : "#8FBC8F"}
               strokeWidth={Math.max(2, healthPercent * 0.08)}
               strokeLinecap="round"
+              transform={waterLevel < 30 ? "rotate(10 150 320)" : ""}
             />
             <ellipse
               cx="150"
-              cy={320 - healthPercent * 0.5 - 5}
+              cy={320 - healthPercent * 0.5 * (waterLevel > 30 ? 1 : 0.7) - 5}
               rx={Math.max(4, healthPercent * 0.15)}
               ry={Math.max(2, healthPercent * 0.08)}
-              fill="#90EE90"
+              fill={waterLevel > 30 ? "#90EE90" : "#8FBC8F"}
+              opacity={waterLevel > 30 ? 1 : 0.8}
             />
           </g>
         )}
 
         {plantStage === "young" && healthPercent >= 40 && (
           <g>
+            {/* Medium plant - leaves droop if not cared for */}
             <line
               x1="150"
               y1="320"
@@ -515,22 +613,29 @@ const PlantDetails = () => {
               cy={280 - (healthPercent - 40) * 0.3}
               rx={10 + (healthPercent - 40) * 0.2}
               ry={6 + (healthPercent - 40) * 0.1}
-              fill="#32CD32"
-              transform={`rotate(-20 130 ${280 - (healthPercent - 40) * 0.3})`}
+              fill={waterLevel > 40 ? "#32CD32" : "#228B22"}
+              opacity={waterLevel > 40 ? 1 : 0.7}
+              transform={`rotate(${waterLevel > 40 ? -20 : -35} 130 ${
+                280 - (healthPercent - 40) * 0.3
+              })`}
             />
             <ellipse
               cx="170"
               cy={280 - (healthPercent - 40) * 0.3}
               rx={10 + (healthPercent - 40) * 0.2}
               ry={6 + (healthPercent - 40) * 0.1}
-              fill="#32CD32"
-              transform={`rotate(20 170 ${280 - (healthPercent - 40) * 0.3})`}
+              fill={waterLevel > 40 ? "#32CD32" : "#228B22"}
+              opacity={waterLevel > 40 ? 1 : 0.7}
+              transform={`rotate(${waterLevel > 40 ? 20 : 35} 170 ${
+                280 - (healthPercent - 40) * 0.3
+              })`}
             />
           </g>
         )}
 
         {plantStage === "mature" && healthPercent >= 60 && (
           <g>
+            {/* Large plant */}
             <line
               x1="150"
               y1="320"
@@ -540,45 +645,50 @@ const PlantDetails = () => {
               strokeWidth={6 + (healthPercent - 60) * 0.1}
               strokeLinecap="round"
             />
-            <g className="animate-pulse">
+            <g className={waterLevel > 50 ? "animate-pulse" : ""}>
               <ellipse
                 cx="120"
                 cy="220"
                 rx={20 + (healthPercent - 60) * 0.2}
                 ry={12 + (healthPercent - 60) * 0.1}
-                fill="#32CD32"
-                transform="rotate(-30 120 220)"
+                fill={waterLevel > 50 ? "#32CD32" : "#228B22"}
+                opacity={waterLevel > 50 ? 1 : 0.8}
+                transform={`rotate(${waterLevel > 50 ? -30 : -45} 120 220)`}
               />
               <ellipse
                 cx="180"
                 cy="220"
                 rx={20 + (healthPercent - 60) * 0.2}
                 ry={12 + (healthPercent - 60) * 0.1}
-                fill="#32CD32"
-                transform="rotate(30 180 220)"
+                fill={waterLevel > 50 ? "#32CD32" : "#228B22"}
+                opacity={waterLevel > 50 ? 1 : 0.8}
+                transform={`rotate(${waterLevel > 50 ? 30 : 45} 180 220)`}
               />
               <ellipse
                 cx="110"
                 cy="180"
                 rx={25 + (healthPercent - 60) * 0.2}
                 ry={15 + (healthPercent - 60) * 0.1}
-                fill="#228B22"
-                transform="rotate(-45 110 180)"
+                fill={waterLevel > 50 ? "#228B22" : "#556B2F"}
+                opacity={waterLevel > 50 ? 1 : 0.8}
+                transform={`rotate(${waterLevel > 50 ? -45 : -60} 110 180)`}
               />
               <ellipse
                 cx="190"
                 cy="180"
                 rx={25 + (healthPercent - 60) * 0.2}
                 ry={15 + (healthPercent - 60) * 0.1}
-                fill="#228B22"
-                transform="rotate(45 190 180)"
+                fill={waterLevel > 50 ? "#228B22" : "#556B2F"}
+                opacity={waterLevel > 50 ? 1 : 0.8}
+                transform={`rotate(${waterLevel > 50 ? 45 : 60} 190 180)`}
               />
               <ellipse
                 cx="150"
                 cy="160"
                 rx={30 + (healthPercent - 60) * 0.3}
                 ry={18 + (healthPercent - 60) * 0.2}
-                fill="#32CD32"
+                fill={waterLevel > 50 ? "#32CD32" : "#228B22"}
+                opacity={waterLevel > 50 ? 1 : 0.8}
               />
             </g>
           </g>
@@ -649,22 +759,62 @@ const PlantDetails = () => {
           </g>
         )}
 
-        {plantHealth.water > 70 && plantStage !== "dying" && (
-          <g className="animate-bounce">
-            <circle cx="100" cy="160" r="3" fill="#87CEEB" opacity="0.7" />
-            <circle cx="200" cy="180" r="2" fill="#87CEEB" opacity="0.7" />
-            <circle cx="160" cy="140" r="2.5" fill="#87CEEB" opacity="0.7" />
+        {/* Water drops only if recently watered (and plant is alive) */}
+        {plantHealth.water > 70 &&
+          plantStage !== "dying" &&
+          dailyCare.todayCareGiven.water && (
+            <g className="animate-bounce">
+              <circle cx="100" cy="160" r="3" fill="#87CEEB" opacity="0.7" />
+              <circle cx="200" cy="180" r="2" fill="#87CEEB" opacity="0.7" />
+              <circle cx="160" cy="140" r="2.5" fill="#87CEEB" opacity="0.7" />
+            </g>
+          )}
+
+        {/* Wilting/stress indicators */}
+        {plantHealth.water < 30 && plantStage !== "dying" && (
+          <g>
+            <text x="250" y="50" fontSize="24" fill="#FF6600">
+              💧
+            </text>
+            <text x="50" y="50" fontSize="16" fill="#FF6600">
+              Thirsty!
+            </text>
           </g>
         )}
 
+        {/* General health warnings */}
         {plantHealth.health < 30 && plantStage !== "dying" && (
           <g>
-            <text x="250" y="50" fontSize="24" fill="#FF0000">
+            <text x="250" y="80" fontSize="24" fill="#FF0000">
               ⚠️
             </text>
-            <text x="60" y="60" fontSize="20" fill="#FF0000">
+            <text x="60" y="80" fontSize="20" fill="#FF0000">
               💔
             </text>
+          </g>
+        )}
+
+        {/* Neglect indicator - shows if care is overdue */}
+        {isNeglected && plantHealth.health > 20 && (
+          <g>
+            <text
+              x="150"
+              y="40"
+              fontSize="16"
+              fill="#FF4500"
+              textAnchor="middle"
+            >
+              Needs Care!
+            </text>
+            <circle
+              cx="150"
+              cy="50"
+              r="20"
+              fill="none"
+              stroke="#FF4500"
+              strokeWidth="2"
+              opacity="0.5"
+            />
           </g>
         )}
       </svg>
@@ -709,6 +859,12 @@ const PlantDetails = () => {
                 }`}
               >
                 Daily Care: {Math.round(dailyCareProgress)}%
+              </span>
+
+              {/* Debug info - remove in production */}
+              <span className="text-gray-500">•</span>
+              <span className="text-xs text-gray-500">
+                Today: {getTodayString()}, Last: {dailyCare.lastCareDate}
               </span>
 
               {plantHealth.health < 30 && (
