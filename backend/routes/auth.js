@@ -2,6 +2,7 @@ const express = require("express");
 const User = require("../models/user"); // Adjust the path as necessary
 const router = express.Router();
 require("dotenv").config();
+const fetch = require("node-fetch");
 
 // Register route
 router.post("/register", async (req, res) => {
@@ -260,6 +261,45 @@ Find information about the plant "${searchQuery}" and return ONLY a JSON object 
       success: false,
       message: "Failed to fetch plant info",
     });
+  }
+});
+
+//trefle API
+router.get("/plants/:name", async (req, res) => {
+  const plantName = req.params.name;
+  const token = process.env.TREFLE_API_KEY;
+
+  try {
+    const search = await fetch(`https://trefle.io/api/v1/plants/search?token=${token}&q=${plantName}`);
+    const searchData = await search.json();
+    const slug = searchData.data?.[0]?.slug;
+
+    if (!slug) {
+      return res.status(404).json({ message: "Plant not found" });
+    }
+
+    const detail = await fetch(`https://trefle.io/api/v1/plants/${slug}?token=${token}`);
+    const detailData = await detail.json();
+
+    res.json({
+      success: true,
+      plant: {
+        name: detailData.data.common_name || plantName,
+        scientific_name: detailData.data.scientific_name,
+        family: detailData.data.family_common_name,
+        image_url: detailData.data.image_url,
+        specifications: detailData.data.specifications,
+        growth: detailData.data.growth,
+        care: {
+          sunlight: detailData.data.growth?.light || "Unknown",
+          watering: detailData.data.growth?.precipitation_minimum || "Unknown",
+          soil: detailData.data.growth?.soil_texture || "Unknown",
+        },
+      },
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Server error getting plant info" });
   }
 });
 

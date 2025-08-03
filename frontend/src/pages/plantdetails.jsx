@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 
 const PlantDetails = () => {
   const navigate = useNavigate();
+  const { name } = useParams();
 
   // Plant state
   const [plant, setPlant] = useState(null);
@@ -15,6 +16,9 @@ const PlantDetails = () => {
     nutrients: 0,
     happiness: 0,
   });
+
+  // Plant-specific care requirements
+  const [plantCareRequirements, setPlantCareRequirements] = useState(null);
 
   // Daily care tracking
   const [dailyCare, setDailyCare] = useState({
@@ -30,19 +34,253 @@ const PlantDetails = () => {
     dailyReminder: true,
   });
 
+  // Get plant care requirements from API or fallback to default
+  const getPlantCareRequirements = async (plantName) => {
+    try {
+      // Try to fetch from your API first
+      const response = await fetch(
+        `http://localhost:3000/api/plants/${plantName}`
+      );
+      const data = await response.json();
+
+      if (data.success && data.plant) {
+        // Convert API data to care requirements format
+        const apiPlant = data.plant;
+
+        // Map API care data to your care system
+        const waterAmount = mapCareToAmount(apiPlant.care?.watering, "water");
+        const sunlightAmount = mapCareToAmount(
+          apiPlant.care?.sunlight,
+          "sunlight"
+        );
+        const nutrientAmount = mapCareToAmount(
+          apiPlant.care?.soil,
+          "nutrients"
+        );
+
+        return {
+          water: { amount: waterAmount, decay: Math.floor(waterAmount * 0.8) },
+          sunlight: {
+            amount: sunlightAmount,
+            decay: Math.floor(sunlightAmount * 0.7),
+          },
+          nutrients: {
+            amount: nutrientAmount,
+            decay: Math.floor(nutrientAmount * 0.5),
+          },
+          happiness: { amount: 20, decay: 15 }, // Default happiness values
+          difficulty: determineDifficulty(apiPlant.care),
+          specialNeeds: `${apiPlant.care?.sunlight || "Standard light"}, ${
+            apiPlant.care?.watering || "Regular watering"
+          }`,
+          scientificName: apiPlant.scientific_name,
+          imageUrl: apiPlant.image_url,
+        };
+      }
+    } catch (error) {
+      console.log("API not available, using fallback data");
+    }
+
+    // Fallback to your existing plant database
+    const careDB = {
+      "Rose Plant": {
+        water: { amount: 30, decay: 25 },
+        sunlight: { amount: 25, decay: 20 },
+        nutrients: { amount: 35, decay: 15 },
+        happiness: { amount: 20, decay: 18 },
+        difficulty: "Medium",
+        specialNeeds: "Needs regular pruning and well-draining soil",
+      },
+      Sunflower: {
+        water: { amount: 35, decay: 30 },
+        sunlight: { amount: 40, decay: 35 },
+        nutrients: { amount: 25, decay: 12 },
+        happiness: { amount: 15, decay: 10 },
+        difficulty: "Easy",
+        specialNeeds: "Loves full sun and grows tall",
+      },
+      Cactus: {
+        water: { amount: 15, decay: 8 },
+        sunlight: { amount: 30, decay: 15 },
+        nutrients: { amount: 20, decay: 8 },
+        happiness: { amount: 25, decay: 12 },
+        difficulty: "Easy",
+        specialNeeds: "Minimal water, maximum sun",
+      },
+      Lavender: {
+        water: { amount: 20, decay: 15 },
+        sunlight: { amount: 35, decay: 25 },
+        nutrients: { amount: 25, decay: 10 },
+        happiness: { amount: 30, decay: 20 },
+        difficulty: "Medium",
+        specialNeeds: "Prefers dry conditions and Mediterranean climate",
+      },
+      Monstera: {
+        water: { amount: 25, decay: 20 },
+        sunlight: { amount: 20, decay: 18 },
+        nutrients: { amount: 30, decay: 15 },
+        happiness: { amount: 35, decay: 25 },
+        difficulty: "Medium",
+        specialNeeds: "Loves humidity and indirect light",
+      },
+      "Snake Plant": {
+        water: { amount: 12, decay: 6 },
+        sunlight: { amount: 18, decay: 10 },
+        nutrients: { amount: 22, decay: 8 },
+        happiness: { amount: 28, decay: 15 },
+        difficulty: "Easy",
+        specialNeeds: "Very low maintenance, tolerates neglect",
+      },
+    };
+
+    return (
+      careDB[plantName] || {
+        water: { amount: 25, decay: 20 },
+        sunlight: { amount: 25, decay: 18 },
+        nutrients: { amount: 25, decay: 12 },
+        happiness: { amount: 25, decay: 15 },
+        difficulty: "Medium",
+        specialNeeds: "Standard plant care",
+      }
+    );
+  };
+
+  // Helper function to map API care descriptions to amounts
+  const mapCareToAmount = (careDescription, type) => {
+    if (!careDescription) return 25; // default
+
+    const desc = careDescription.toLowerCase();
+
+    switch (type) {
+      case "water":
+        if (
+          desc.includes("high") ||
+          desc.includes("frequent") ||
+          desc.includes("daily")
+        )
+          return 35;
+        if (
+          desc.includes("low") ||
+          desc.includes("minimal") ||
+          desc.includes("drought")
+        )
+          return 15;
+        if (desc.includes("moderate") || desc.includes("regular")) return 25;
+        return 25;
+
+      case "sunlight":
+        if (
+          desc.includes("full sun") ||
+          desc.includes("direct") ||
+          desc.includes("bright")
+        )
+          return 40;
+        if (
+          desc.includes("shade") ||
+          desc.includes("low light") ||
+          desc.includes("indirect")
+        )
+          return 20;
+        if (desc.includes("partial") || desc.includes("medium")) return 30;
+        return 25;
+
+      case "nutrients":
+        if (
+          desc.includes("rich") ||
+          desc.includes("fertile") ||
+          desc.includes("heavy feeder")
+        )
+          return 35;
+        if (
+          desc.includes("poor") ||
+          desc.includes("sandy") ||
+          desc.includes("minimal")
+        )
+          return 20;
+        return 25;
+
+      default:
+        return 25;
+    }
+  };
+
+  // Helper function to determine difficulty based on care requirements
+  const determineDifficulty = (care) => {
+    if (!care) return "Medium";
+
+    const careString = JSON.stringify(care).toLowerCase();
+
+    if (
+      careString.includes("easy") ||
+      careString.includes("low maintenance") ||
+      careString.includes("drought tolerant")
+    ) {
+      return "Easy";
+    }
+    if (
+      careString.includes("difficult") ||
+      careString.includes("specific") ||
+      careString.includes("sensitive")
+    ) {
+      return "Hard";
+    }
+    return "Medium";
+  };
+
   // Get today's date in YYYY-MM-DD format for consistent comparison
   const getTodayString = () => {
     return new Date().toISOString().split("T")[0];
   };
 
-  // Get selected plant from localStorage
+  // Load plant data - handles both URL params and localStorage
   useEffect(() => {
-    const selectedPlant = localStorage.getItem("selectedPlant");
-    if (selectedPlant) {
-      const plantData = JSON.parse(selectedPlant);
+    const loadPlantData = async () => {
+      let plantData = null;
+
+      // First, try to get plant from URL parameter
+      if (name) {
+        try {
+          const response = await fetch(
+            `http://localhost:3000/api/plants/${name}`
+          );
+          const data = await response.json();
+
+          if (data.success && data.plant) {
+            plantData = {
+              id: data.plant.id || name.replace(/\s+/g, "").toLowerCase(),
+              name: data.plant.name || name,
+              description: `Scientific name: ${data.plant.scientific_name}`,
+              care: `${data.plant.care?.sunlight || ""}, ${
+                data.plant.care?.watering || ""
+              }`,
+              image_url: data.plant.image_url,
+              scientific_name: data.plant.scientific_name,
+              apiData: data.plant,
+            };
+          }
+        } catch (error) {
+          console.log("API fetch failed, checking localStorage");
+        }
+      }
+
+      // Fallback to localStorage if API fails or no URL param
+      if (!plantData) {
+        const selectedPlant = localStorage.getItem("selectedPlant");
+        if (selectedPlant) {
+          plantData = JSON.parse(selectedPlant);
+        } else {
+          navigate("/plant-select");
+          return;
+        }
+      }
+
       setPlant(plantData);
 
-      // Check if this plant has existing data
+      // Set plant-specific care requirements
+      const requirements = await getPlantCareRequirements(plantData.name);
+      setPlantCareRequirements(requirements);
+
+      // Check if this plant has existing progress data
       const existingData = localStorage.getItem(
         `plant_${plantData.id}_progress`
       );
@@ -74,10 +312,10 @@ const PlantDetails = () => {
           }
         );
       }
-    } else {
-      navigate("/plant-select");
-    }
-  }, [navigate]);
+    };
+
+    loadPlantData();
+  }, [navigate, name]);
 
   // Save plant progress whenever it changes
   useEffect(() => {
@@ -98,38 +336,43 @@ const PlantDetails = () => {
 
   // Check if it's a new day and apply daily effects
   useEffect(() => {
-    if (!plant) return; // Don't run if plant isn't loaded yet
+    if (!plant || !plantCareRequirements) return;
 
     const today = getTodayString();
     const lastCareDate = dailyCare.lastCareDate;
 
-    console.log("Today:", today, "Last Care Date:", lastCareDate); // Debug log
-
     if (lastCareDate !== today) {
-      // It's a new day - check if we need to apply penalties
       if (lastCareDate !== null) {
-        // Calculate days missed
         const lastDate = new Date(lastCareDate);
         const todayDate = new Date(today);
         const daysDifference = Math.floor(
           (todayDate - lastDate) / (1000 * 60 * 60 * 24)
         );
 
-        console.log("Days difference:", daysDifference); // Debug log
-
         if (daysDifference > 1) {
-          // Player missed one or more days (more than 1 day gap)
           const daysMissed = daysDifference - 1;
 
-          console.log("Days missed:", daysMissed); // Debug log
-
-          // Apply penalties for missed days
+          // Apply plant-specific penalties for missed days
           setPlantHealth((prev) => ({
             health: Math.max(0, prev.health - daysMissed * 15),
-            water: Math.max(0, prev.water - daysMissed * 20),
-            sunlight: Math.max(0, prev.sunlight - daysMissed * 15),
-            nutrients: Math.max(0, prev.nutrients - daysMissed * 10),
-            happiness: Math.max(0, prev.happiness - daysMissed * 25),
+            water: Math.max(
+              0,
+              prev.water - daysMissed * plantCareRequirements.water.decay
+            ),
+            sunlight: Math.max(
+              0,
+              prev.sunlight - daysMissed * plantCareRequirements.sunlight.decay
+            ),
+            nutrients: Math.max(
+              0,
+              prev.nutrients -
+                daysMissed * plantCareRequirements.nutrients.decay
+            ),
+            happiness: Math.max(
+              0,
+              prev.happiness -
+                daysMissed * plantCareRequirements.happiness.decay
+            ),
           }));
 
           setDailyCare((prev) => ({
@@ -171,11 +414,11 @@ const PlantDetails = () => {
         }));
       }
     }
-  }, [plant, dailyCare.lastCareDate]);
+  }, [plant, plantCareRequirements, dailyCare.lastCareDate]);
 
-  // Auto-decay system - plant health decreases over time if not cared for recently
+  // Auto-decay system with plant-specific rates
   useEffect(() => {
-    if (!plant) return;
+    if (!plant || !plantCareRequirements) return;
 
     const decayTimer = setInterval(() => {
       const today = getTodayString();
@@ -185,11 +428,23 @@ const PlantDetails = () => {
       if (!isDailyCareComplete() || lastCareDate !== today) {
         setPlantHealth((prev) => {
           const newHealth = {
-            health: Math.max(0, prev.health - 1), // Slower decay
-            water: Math.max(0, prev.water - 2),
-            sunlight: Math.max(0, prev.sunlight - 1),
-            nutrients: Math.max(0, prev.nutrients - 0.5),
-            happiness: Math.max(0, prev.happiness - 1.5),
+            health: Math.max(0, prev.health - 1),
+            water: Math.max(
+              0,
+              prev.water - plantCareRequirements.water.decay * 0.1
+            ),
+            sunlight: Math.max(
+              0,
+              prev.sunlight - plantCareRequirements.sunlight.decay * 0.08
+            ),
+            nutrients: Math.max(
+              0,
+              prev.nutrients - plantCareRequirements.nutrients.decay * 0.06
+            ),
+            happiness: Math.max(
+              0,
+              prev.happiness - plantCareRequirements.happiness.decay * 0.09
+            ),
           };
 
           // Update overall health based on other stats
@@ -207,7 +462,12 @@ const PlantDetails = () => {
     }, 10000); // Decay every 10 seconds
 
     return () => clearInterval(decayTimer);
-  }, [plant, dailyCare.lastCareDate, dailyCare.todayCareGiven]);
+  }, [
+    plant,
+    plantCareRequirements,
+    dailyCare.lastCareDate,
+    dailyCare.todayCareGiven,
+  ]);
 
   // Check daily care completion
   const isDailyCareComplete = () => {
@@ -246,12 +506,15 @@ const PlantDetails = () => {
     }
   }, [plantHealth.health, dailyCare.todayCareGiven]);
 
-  // Enhanced action handlers with daily tracking
+  // Plant-specific action handlers
   const waterPlant = () => {
+    if (!plantCareRequirements) return;
+
     const today = getTodayString();
+    const waterAmount = plantCareRequirements.water.amount;
 
     setPlantHealth((prev) => {
-      const newWater = Math.min(100, prev.water + 25);
+      const newWater = Math.min(100, prev.water + waterAmount);
       const newHappiness = Math.min(100, prev.happiness + 5);
       const avgStats =
         (newWater + prev.sunlight + prev.nutrients + newHappiness) / 4;
@@ -264,7 +527,6 @@ const PlantDetails = () => {
       };
     });
 
-    // Mark daily care as given
     setDailyCare((prev) => {
       const updatedCare = {
         ...prev,
@@ -275,7 +537,6 @@ const PlantDetails = () => {
         },
       };
 
-      // Check if this completes daily care
       const newCareGiven = updatedCare.todayCareGiven;
       if (
         newCareGiven.water &&
@@ -292,10 +553,13 @@ const PlantDetails = () => {
   };
 
   const giveSunlight = () => {
+    if (!plantCareRequirements) return;
+
     const today = getTodayString();
+    const sunlightAmount = plantCareRequirements.sunlight.amount;
 
     setPlantHealth((prev) => {
-      const newSunlight = Math.min(100, prev.sunlight + 20);
+      const newSunlight = Math.min(100, prev.sunlight + sunlightAmount);
       const newHappiness = Math.min(100, prev.happiness + 3);
       const avgStats =
         (prev.water + newSunlight + prev.nutrients + newHappiness) / 4;
@@ -334,10 +598,13 @@ const PlantDetails = () => {
   };
 
   const addNutrients = () => {
+    if (!plantCareRequirements) return;
+
     const today = getTodayString();
+    const nutrientAmount = plantCareRequirements.nutrients.amount;
 
     setPlantHealth((prev) => {
-      const newNutrients = Math.min(100, prev.nutrients + 30);
+      const newNutrients = Math.min(100, prev.nutrients + nutrientAmount);
       const newHappiness = Math.min(100, prev.happiness + 7);
       const avgStats =
         (prev.water + prev.sunlight + newNutrients + newHappiness) / 4;
@@ -376,10 +643,13 @@ const PlantDetails = () => {
   };
 
   const playWithPlant = () => {
+    if (!plantCareRequirements) return;
+
     const today = getTodayString();
+    const happinessAmount = plantCareRequirements.happiness.amount;
 
     setPlantHealth((prev) => {
-      const newHappiness = Math.min(100, prev.happiness + 15);
+      const newHappiness = Math.min(100, prev.happiness + happinessAmount);
       const avgStats =
         (prev.water + prev.sunlight + prev.nutrients + newHappiness) / 4;
 
@@ -486,7 +756,51 @@ const PlantDetails = () => {
     }
   };
 
-  // Render plant SVG based on stage and health - ENHANCED to show neglect
+  // Render plant SVG or API image
+  const renderPlantVisual = () => {
+    // If we have an API image, show it with care indicators
+    if (plant?.image_url) {
+      return (
+        <div className="relative">
+          <img
+            src={plant.image_url}
+            alt={plant.name}
+            className="w-72 h-96 object-cover rounded-lg mx-auto transform hover:scale-105 transition-transform duration-300"
+            onError={(e) => {
+              e.target.style.display = "none";
+              e.target.nextSibling.style.display = "block";
+            }}
+          />
+          {/* Fallback to SVG if image fails to load */}
+          <div style={{ display: "none" }}>{renderPlantSVG()}</div>
+
+          {/* Care status overlay */}
+          <div className="absolute top-4 right-4 space-y-2">
+            {plantHealth.water < 30 && (
+              <div className="bg-red-500 text-white px-2 py-1 rounded-full text-xs animate-pulse">
+                💧 Thirsty!
+              </div>
+            )}
+            {plantHealth.health < 30 && (
+              <div className="bg-red-600 text-white px-2 py-1 rounded-full text-xs animate-pulse">
+                ⚠️ Critical!
+              </div>
+            )}
+            {isDailyCareComplete() && (
+              <div className="bg-green-500 text-white px-2 py-1 rounded-full text-xs">
+                ✅ Well Cared!
+              </div>
+            )}
+          </div>
+        </div>
+      );
+    }
+
+    // Fallback to your existing SVG system
+    return renderPlantSVG();
+  };
+
+  // Your existing renderPlantSVG function (keeping it as fallback)
   const renderPlantSVG = () => {
     const healthPercent = plantHealth.health;
     const waterLevel = plantHealth.water;
@@ -821,12 +1135,12 @@ const PlantDetails = () => {
     );
   };
 
-  if (!plant) {
+  if (!plant || !plantCareRequirements) {
     return (
       <div className="min-h-screen bg-green-50 flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading your plant...</p>
+          <p className="text-gray-600">Loading plant details...</p>
         </div>
       </div>
     );
@@ -838,10 +1152,15 @@ const PlantDetails = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-green-50 via-blue-50 to-purple-50 p-6">
       <div className="max-w-7xl mx-auto">
-        {/* Header with daily care reminder */}
+        {/* Enhanced Header with API data */}
         <div className="flex justify-between items-center mb-8">
           <div>
             <h1 className="text-4xl font-bold text-gray-900">{plant.name}</h1>
+            {plant.scientific_name && (
+              <p className="text-lg italic text-gray-500 mt-1">
+                {plant.scientific_name}
+              </p>
+            )}
             <p className="text-gray-600 mt-2">{plant.description}</p>
             <div className="flex items-center mt-3 space-x-4">
               <span className={`flex items-center ${stageInfo.color}`}>
@@ -850,8 +1169,6 @@ const PlantDetails = () => {
               </span>
               <span className="text-gray-500">•</span>
               <span className="text-gray-600">Age: {plantAge} days</span>
-
-              {/* Daily care status */}
               <span className="text-gray-500">•</span>
               <span
                 className={`font-semibold ${
@@ -860,21 +1177,18 @@ const PlantDetails = () => {
               >
                 Daily Care: {Math.round(dailyCareProgress)}%
               </span>
-
-              {/* Debug info - remove in production */}
               <span className="text-gray-500">•</span>
-              <span className="text-xs text-gray-500">
-                Today: {getTodayString()}, Last: {dailyCare.lastCareDate}
+              <span
+                className={`text-sm px-2 py-1 rounded ${
+                  plantCareRequirements.difficulty === "Easy"
+                    ? "bg-green-100 text-green-800"
+                    : plantCareRequirements.difficulty === "Medium"
+                    ? "bg-yellow-100 text-yellow-800"
+                    : "bg-red-100 text-red-800"
+                }`}
+              >
+                {plantCareRequirements.difficulty}
               </span>
-
-              {plantHealth.health < 30 && (
-                <>
-                  <span className="text-gray-500">•</span>
-                  <span className="text-red-600 font-semibold animate-pulse">
-                    ⚠️ Critical Health!
-                  </span>
-                </>
-              )}
             </div>
           </div>
           <button
@@ -885,6 +1199,42 @@ const PlantDetails = () => {
           </button>
         </div>
 
+        {/* API Plant Info Banner */}
+        {plant.apiData && (
+          <div className="mb-6 bg-gradient-to-r from-green-500 to-teal-500 text-white p-4 rounded-lg">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="font-bold text-lg">
+                  🌿 {plant.name} Care Guide
+                </h3>
+                <p className="text-sm opacity-90">
+                  {plantCareRequirements.specialNeeds}
+                </p>
+                {plant.apiData.care && (
+                  <div className="mt-2 text-xs opacity-75">
+                    <span className="mr-4">
+                      💧 {plant.apiData.care.watering}
+                    </span>
+                    <span className="mr-4">
+                      ☀️ {plant.apiData.care.sunlight}
+                    </span>
+                    <span>🌱 {plant.apiData.care.soil}</span>
+                  </div>
+                )}
+              </div>
+              <div className="text-right">
+                <p className="text-xs">Care Amounts per Action:</p>
+                <p className="text-xs">
+                  💧 {plantCareRequirements.water.amount}% • ☀️{" "}
+                  {plantCareRequirements.sunlight.amount}% • 🌿{" "}
+                  {plantCareRequirements.nutrients.amount}% • 😊{" "}
+                  {plantCareRequirements.happiness.amount}%
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Daily Care Reminder Banner */}
         {dailyCare.dailyReminder && !isDailyCareComplete() && (
           <div className="mb-6 bg-gradient-to-r from-blue-500 to-purple-500 text-white p-4 rounded-lg">
@@ -894,8 +1244,8 @@ const PlantDetails = () => {
                   🌱 Daily Plant Care Reminder
                 </h3>
                 <p className="text-sm opacity-90">
-                  Your plant needs daily attention! Complete all care tasks
-                  today to maintain health.
+                  Your {plant.name} needs daily attention! Complete all care
+                  tasks today to maintain health.
                 </p>
               </div>
               <div className="text-right">
@@ -921,8 +1271,8 @@ const PlantDetails = () => {
               <div>
                 <h3 className="font-bold text-lg">🎉 Daily Care Complete!</h3>
                 <p className="text-sm opacity-90">
-                  Excellent job! Your plant is happy and healthy today. Care
-                  streak: {dailyCare.careStreak} days
+                  Excellent job! Your {plant.name} is happy and healthy today.
+                  Care streak: {dailyCare.careStreak} days
                 </p>
               </div>
               <div className="text-right">
@@ -933,12 +1283,45 @@ const PlantDetails = () => {
         )}
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Left Side - Plant Health with daily tracking */}
+          {/* Left Side - Plant Health */}
           <div className="bg-white rounded-xl shadow-lg p-6">
             <h2 className="text-2xl font-bold text-gray-900 mb-6 flex items-center">
               <span className="text-green-600 mr-2">🌱</span>
               Plant Health
             </h2>
+
+            {/* Plant-Specific Care Requirements Display */}
+            <div className="mb-6 p-4 bg-gradient-to-r from-green-50 to-teal-50 rounded-lg">
+              <h3 className="font-bold text-green-800 mb-2">
+                Care Effectiveness
+              </h3>
+              <div className="grid grid-cols-2 gap-2 text-xs">
+                <div className="flex justify-between">
+                  <span>💧 Water:</span>
+                  <span className="font-semibold">
+                    +{plantCareRequirements.water.amount}%
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span>☀️ Sunlight:</span>
+                  <span className="font-semibold">
+                    +{plantCareRequirements.sunlight.amount}%
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span>🌿 Nutrients:</span>
+                  <span className="font-semibold">
+                    +{plantCareRequirements.nutrients.amount}%
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span>😊 Happiness:</span>
+                  <span className="font-semibold">
+                    +{plantCareRequirements.happiness.amount}%
+                  </span>
+                </div>
+              </div>
+            </div>
 
             {/* Daily Care Progress */}
             <div className="mb-6 p-4 bg-gradient-to-r from-purple-50 to-pink-50 rounded-lg">
@@ -1194,10 +1577,10 @@ const PlantDetails = () => {
             </div>
           </div>
 
-          {/* Center - Plant SVG */}
+          {/* Center - Plant Visual (API Image or SVG) */}
           <div className="bg-white rounded-xl shadow-lg p-8 flex items-center justify-center">
             <div className="text-center">
-              <div className="mb-6">{renderPlantSVG()}</div>
+              <div className="mb-6">{renderPlantVisual()}</div>
 
               <h3 className="text-2xl font-bold text-gray-900 mb-2">
                 {plant.name}
@@ -1246,7 +1629,7 @@ const PlantDetails = () => {
             </div>
           </div>
 
-          {/* Right Side - Daily Care Actions */}
+          {/* Right Side - Plant-Specific Care Actions */}
           <div className="bg-white rounded-xl shadow-lg p-6">
             <h2 className="text-2xl font-bold text-gray-900 mb-6 flex items-center">
               <span className="text-blue-600 mr-2">🛠️</span>
@@ -1275,13 +1658,18 @@ const PlantDetails = () => {
                 <span className="text-2xl">
                   {dailyCare.todayCareGiven.water ? "✅" : "💧"}
                 </span>
-                <span className="font-semibold">
-                  {dailyCare.todayCareGiven.water
-                    ? "Water Given Today ✓"
-                    : plantHealth.water < 30
-                    ? "URGENT: Water Plant"
-                    : "Water Plant"}
-                </span>
+                <div className="text-center">
+                  <div className="font-semibold">
+                    {dailyCare.todayCareGiven.water
+                      ? "Water Given Today ✓"
+                      : plantHealth.water < 30
+                      ? "URGENT: Water Plant"
+                      : "Water Plant"}
+                  </div>
+                  <div className="text-xs opacity-75">
+                    +{plantCareRequirements.water.amount}% water
+                  </div>
+                </div>
               </button>
 
               {/* Give Sunlight */}
@@ -1299,13 +1687,18 @@ const PlantDetails = () => {
                 <span className="text-2xl">
                   {dailyCare.todayCareGiven.sunlight ? "✅" : "☀️"}
                 </span>
-                <span className="font-semibold">
-                  {dailyCare.todayCareGiven.sunlight
-                    ? "Sunlight Given Today ✓"
-                    : plantHealth.sunlight < 30
-                    ? "URGENT: Give Sunlight"
-                    : "Give Sunlight"}
-                </span>
+                <div className="text-center">
+                  <div className="font-semibold">
+                    {dailyCare.todayCareGiven.sunlight
+                      ? "Sunlight Given Today ✓"
+                      : plantHealth.sunlight < 30
+                      ? "URGENT: Give Sunlight"
+                      : "Give Sunlight"}
+                  </div>
+                  <div className="text-xs opacity-75">
+                    +{plantCareRequirements.sunlight.amount}% sunlight
+                  </div>
+                </div>
               </button>
 
               {/* Add Nutrients */}
@@ -1323,13 +1716,18 @@ const PlantDetails = () => {
                 <span className="text-2xl">
                   {dailyCare.todayCareGiven.nutrients ? "✅" : "🌿"}
                 </span>
-                <span className="font-semibold">
-                  {dailyCare.todayCareGiven.nutrients
-                    ? "Nutrients Given Today ✓"
-                    : plantHealth.nutrients < 30
-                    ? "URGENT: Add Nutrients"
-                    : "Add Nutrients"}
-                </span>
+                <div className="text-center">
+                  <div className="font-semibold">
+                    {dailyCare.todayCareGiven.nutrients
+                      ? "Nutrients Given Today ✓"
+                      : plantHealth.nutrients < 30
+                      ? "URGENT: Add Nutrients"
+                      : "Add Nutrients"}
+                  </div>
+                  <div className="text-xs opacity-75">
+                    +{plantCareRequirements.nutrients.amount}% nutrients
+                  </div>
+                </div>
               </button>
 
               {/* Play with Plant */}
@@ -1347,39 +1745,25 @@ const PlantDetails = () => {
                 <span className="text-2xl">
                   {dailyCare.todayCareGiven.happiness ? "✅" : "🎵"}
                 </span>
-                <span className="font-semibold">
-                  {dailyCare.todayCareGiven.happiness
-                    ? "Play Time Done Today ✓"
-                    : plantHealth.happiness < 30
-                    ? "URGENT: Cheer Up Plant"
-                    : "Play Music"}
-                </span>
+                <div className="text-center">
+                  <div className="font-semibold">
+                    {dailyCare.todayCareGiven.happiness
+                      ? "Play Time Done Today ✓"
+                      : plantHealth.happiness < 30
+                      ? "URGENT: Cheer Up Plant"
+                      : "Play Music"}
+                  </div>
+                  <div className="text-xs opacity-75">
+                    +{plantCareRequirements.happiness.amount}% happiness
+                  </div>
+                </div>
               </button>
-
-              {/* Emergency Care Button */}
-              {plantHealth.health < 20 && (
-                <button
-                  onClick={() => {
-                    setPlantHealth({
-                      health: 40,
-                      water: 50,
-                      sunlight: 40,
-                      nutrients: 45,
-                      happiness: 35,
-                    });
-                  }}
-                  className="w-full bg-gradient-to-r from-red-500 to-pink-500 hover:from-red-600 hover:to-pink-600 text-white p-4 rounded-lg transition-colors flex items-center justify-center space-x-2 animate-bounce"
-                >
-                  <span className="text-2xl">🚑</span>
-                  <span className="font-semibold">EMERGENCY CARE</span>
-                </button>
-              )}
             </div>
 
             {/* Daily Goals Summary */}
             <div className="mt-6 p-4 bg-blue-50 rounded-lg">
               <h3 className="font-semibold text-blue-900 mb-2">
-                📋 Daily Goals
+                📋 Daily Goals for {plant.name}
               </h3>
               <ul className="text-sm text-blue-800 space-y-1">
                 <li
@@ -1389,8 +1773,8 @@ const PlantDetails = () => {
                       : ""
                   }
                 >
-                  • {dailyCare.todayCareGiven.water ? "✅" : "🎯"} Water your
-                  plant
+                  • {dailyCare.todayCareGiven.water ? "✅" : "🎯"} Water (+
+                  {plantCareRequirements.water.amount}%)
                 </li>
                 <li
                   className={
@@ -1399,8 +1783,8 @@ const PlantDetails = () => {
                       : ""
                   }
                 >
-                  • {dailyCare.todayCareGiven.sunlight ? "✅" : "🎯"} Give
-                  sunlight exposure
+                  • {dailyCare.todayCareGiven.sunlight ? "✅" : "🎯"} Sunlight
+                  (+{plantCareRequirements.sunlight.amount}%)
                 </li>
                 <li
                   className={
@@ -1409,8 +1793,8 @@ const PlantDetails = () => {
                       : ""
                   }
                 >
-                  • {dailyCare.todayCareGiven.nutrients ? "✅" : "🎯"} Add
-                  nutrients/fertilizer
+                  • {dailyCare.todayCareGiven.nutrients ? "✅" : "🎯"} Nutrients
+                  (+{plantCareRequirements.nutrients.amount}%)
                 </li>
                 <li
                   className={
@@ -1419,18 +1803,10 @@ const PlantDetails = () => {
                       : ""
                   }
                 >
-                  • {dailyCare.todayCareGiven.happiness ? "✅" : "🎯"} Spend
-                  quality time (play music)
+                  • {dailyCare.todayCareGiven.happiness ? "✅" : "🎯"} Play Time
+                  (+{plantCareRequirements.happiness.amount}%)
                 </li>
               </ul>
-
-              {isDailyCareComplete() && (
-                <div className="mt-3 p-2 bg-green-100 rounded-lg text-center">
-                  <p className="text-green-800 font-semibold text-sm">
-                    🎉 All daily goals completed! Great job!
-                  </p>
-                </div>
-              )}
             </div>
 
             {/* Care Statistics */}
